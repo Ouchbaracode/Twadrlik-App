@@ -5,18 +5,18 @@ import hashlib
 import mysql.connector
 from pymongo import MongoClient
 from bson.objectid import ObjectId 
-from bson.binary import Binary # <-- Import Binary for MongoDB image storage
-import base64 # <-- To handle potential large image data conversion if needed
-import io # <-- Needed for QPixmap from bytes
+from bson.binary import Binary 
+import base64       # <-- To handle potential large image data conversion if needed
+import io           # <-- Needed for QPixmap from bytes
 
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QLabel, QLineEdit,
                             QVBoxLayout, QHBoxLayout, QFormLayout, QPushButton,
                             QStackedWidget, QComboBox, QDateEdit, QTextEdit,
                             QListWidget, QListWidgetItem, QMessageBox, QGroupBox,
                             QScrollArea, QSizePolicy, QSpacerItem, QFileDialog,
-                            QDialog, QDialogButtonBox) # <-- Import QFileDialog, QDialog, QDialogButtonBox
+                            QDialog, QDialogButtonBox) 
 from PyQt5.QtGui import QFont, QColor, QPalette, QIcon, QPixmap
-from PyQt5.QtCore import Qt, QDate, QBuffer, QIODevice, QTimer, QSize # <-- Import QBuffer, QIODevice, QTimer, QSize
+from PyQt5.QtCore import Qt, QDate, QBuffer, QIODevice, QTimer, QSize 
 
 # Global variables for database connections 
 mysql_connection = None
@@ -48,7 +48,7 @@ def connect_to_mysql():
     if mysql_connection and mysql_connection.is_connected():
         return True # Already connected
     try:
-        mysql_connection = mysql.connector.connect(**MYSQL_CONFIG, autocommit=False) # Disable autocommit for transactions
+        mysql_connection = mysql.connector.connect(**MYSQL_CONFIG, autocommit=False) 
         # Test connection
         cursor = mysql_connection.cursor()
         cursor.execute("SELECT 1")
@@ -72,11 +72,9 @@ def connect_to_mongodb():
               print("MongoDB connection lost, attempting to reconnect...")
               mongo_client = None
               mongo_db = None
-              # Fall through to reconnect logic
     try:
-        mongo_client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000) # Add timeout
-        # The ismaster command is cheap and does not require auth.
-        mongo_client.admin.command('ismaster') # Verify connection
+        mongo_client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000) 
+        mongo_client.admin.command('ismaster')
         mongo_db = mongo_client[MONGODB_DB]
         print("MongoDB connected successfully")
         return True
@@ -92,6 +90,7 @@ def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
 # --- User Authentication Functions ---
+
 def register_user(username, email, password):
     """Register a new user in the MySQL database"""
     if not connect_to_mysql():
@@ -120,7 +119,7 @@ def register_user(username, email, password):
         return True, "Registration successful!"
     except mysql.connector.Error as err:
         print(f"Registration error: {err}")
-        mysql_connection.rollback() # Rollback changes on error
+        mysql_connection.rollback() 
         return False, f"Registration failed: {err}"
     finally:
         if cursor:
@@ -179,16 +178,13 @@ def save_item(user_id, title, category, location, date, status, description, ima
                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
             (user_id, title, category, location, date, status, mongo_id_str, description)
             )
-        # We forgot the description field in the items table in the CREATE statement.
-        # Let's assume it exists or decide to only rely on MongoDB for description.
-        # For now, assuming description is NOT in the MySQL items table.
+   
 
         mysql_connection.commit()
         return True, "Item saved successfully!"
 
     except Exception as e:
         print(f"Error saving item: {e}")
-        # Rollback logic: If MySQL fails after MongoDB insert, delete the MongoDB doc
         if mongo_id_obj:
             try:
                 mongo_db.items_detail.delete_one({"_id": mongo_id_obj})
@@ -243,7 +239,7 @@ def get_all_items(filter_category=None, filter_location=None, include_recovered=
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 
-        query += " ORDER BY i.status, i.date DESC, i.created_at DESC" # Show found/lost first
+        query += " ORDER BY i.status, i.date DESC, i.created_at DESC" 
 
         cursor.execute(query, tuple(params)) # Pass params as tuple
         items_mysql = cursor.fetchall()
@@ -259,7 +255,7 @@ def get_all_items(filter_category=None, filter_location=None, include_recovered=
                     item_detail = mongo_db.items_detail.find_one({"_id": mongo_object_id})
                     if item_detail:
                         description = item_detail.get('description', 'No description found')
-                        image_data = item_detail.get('image') # This is BSON Binary or None
+                        image_data = item_detail.get('image') 
                     else:
                         print(f"No MongoDB document found for mongo_id: {mongo_id_str}")
                         description = 'Details missing in secondary storage'
@@ -277,7 +273,7 @@ def get_all_items(filter_category=None, filter_location=None, include_recovered=
         return []
     except Exception as e:
         print(f"An error occurred during item retrieval: {e}")
-        return items # Return potentially partially fetched items
+        return items 
     finally:
         if cursor:
             cursor.close()
@@ -333,7 +329,7 @@ def get_user_items(user_id):
         return []
     except Exception as e:
         print(f"An error occurred during user item retrieval: {e}")
-        return items # Return potentially partially fetched items
+        return items 
     finally:
         if cursor:
             cursor.close()
@@ -402,11 +398,10 @@ def submit_claim(item_id, claimant_id, reason, evidence_image_data=None):
     cursor = None
 
     try:
-        # 1. (Optional) Save evidence image to MongoDB claims_detail collection
         if evidence_image_data:
             mongo_result = mongo_db.claims_detail.insert_one({
                 "evidence_image": Binary(evidence_image_data),
-                "notes": f"Evidence for claim on item {item_id} by user {claimant_id}" # Example note
+                "notes": f"Evidence for claim on item {item_id} by user {claimant_id}" 
             })
             mongo_detail_id_obj = mongo_result.inserted_id
             mongo_detail_id_str = str(mongo_detail_id_obj)
@@ -483,7 +478,7 @@ def get_claims_for_item(item_id):
         return []
     except Exception as e:
         print(f"An error occurred during claim retrieval for item: {e}")
-        return claims # Return potentially partially fetched claims
+        return claims 
     finally:
         if cursor:
             cursor.close()
@@ -512,8 +507,7 @@ def get_claims_by_claimant(claimant_id):
 
         # Fetch details (item image, claim evidence image) from MongoDB
         for claim in claims_mysql:
-            # Fetch claim evidence image
-            mongo_detail_id_str = claim.get('mongo_detail_id')
+            mongo_detail_id_str = claim.get('mongo_detail_id') 
             evidence_image_data = None
             if mongo_detail_id_str:
                 try:
@@ -544,7 +538,7 @@ def get_claims_by_claimant(claimant_id):
         return []
     except Exception as e:
         print(f"An error occurred during claim retrieval by claimant: {e}")
-        return claims # Return potentially partially fetched claims
+        return claims 
     finally:
         if cursor:
             cursor.close()
@@ -588,19 +582,18 @@ def accept_claim(claim_id, item_id):
         # 2. Update the item's status to 'recovered'
         cursor.execute("UPDATE items SET status = %s WHERE id = %s", ('recovered', item_id))
         if cursor.rowcount == 0:
-             raise Exception(f"Item ID {item_id} not found or already recovered.") # Or handle differently
+             raise Exception(f"Item ID {item_id} not found or already recovered.") 
 
-        # 3. Reject all other *pending* claims for the same item
         cursor.execute(
             "UPDATE claims SET status = %s WHERE item_id = %s AND status = %s AND id != %s",
             ('rejected', item_id, 'pending', claim_id)
         )
-        rejected_count = cursor.rowcount # How many other claims were rejected
+        rejected_count = cursor.rowcount 
 
         mysql_connection.commit()
         return True, f"Claim {claim_id} accepted. Item {item_id} marked as recovered. {rejected_count} other pending claims rejected."
 
-    except Exception as err: # Catch MySQL errors and others (like claim/item not found)
+    except Exception as err: 
         print(f"Error accepting claim: {err}")
         mysql_connection.rollback()
         return False, f"Failed to accept claim: {err}"
@@ -684,14 +677,15 @@ class ClaimDialog(QDialog):
                     raise ValueError("Invalid image file")
 
                 # Read image data for potential submission
+                
                 with open(file_path, 'rb') as f:
                     self.evidence_image_data = f.read()
-                    if len(self.evidence_image_data) > 16 * 1024 * 1024: # Check size
+                    if len(self.evidence_image_data) > 16 * 1024 * 1024: 
                         QMessageBox.warning(self, "Image Too Large", "Evidence image must be under 16MB.")
                         self.evidence_image_data = None
                         self.selected_evidence_path = None
                         self.evidence_preview_label.setText("Image too large.")
-                        self.evidence_preview_label.setPixmap(QPixmap()) # Clear preview
+                        self.evidence_preview_label.setPixmap(QPixmap()) 
                         return
 
                 self.selected_evidence_path = file_path
@@ -705,7 +699,7 @@ class ClaimDialog(QDialog):
                 self.selected_evidence_path = None
                 self.evidence_image_data = None
                 self.evidence_preview_label.setText("Error loading image.")
-                self.evidence_preview_label.setPixmap(QPixmap()) # Clear preview
+                self.evidence_preview_label.setPixmap(QPixmap()) 
 
 
     def get_claim_data(self):
@@ -714,38 +708,31 @@ class ClaimDialog(QDialog):
         if not reason:
             QMessageBox.warning(self, "Missing Information", "Please provide a reason for your claim.")
             return None
-        return reason, self.evidence_image_data # evidence_image_data is None if not selected/valid
-
+        return reason, self.evidence_image_data
 
 class TawdrlikApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        # Initialize database connections (and setup tables if first run)
-        # setup_database_tables() # Uncomment this line for the very first run
-
         if not connect_to_mysql() or not connect_to_mongodb():
             QMessageBox.critical(self, "Startup Error", "Failed to connect to databases. Application cannot start.")
-            # Don't exit immediately, let the user see the message.
-            # The UI might be partially usable but DB operations will fail.
-            # Consider disabling buttons or showing a persistent error message.
+           
             self.databases_connected = False
         else:
             self.databases_connected = True
 
-        self.current_user = None # Will store user dict: {'id': ?, 'username': ?, 'email': ?}
-        self.selected_image_path = None # For posting items
-
+        self.current_user = None 
+        self.selected_image_path = None 
         self.setWindowTitle("Tawdrlik - Lost & Found System")
-        self.setGeometry(100, 100, 950, 750) # Slightly larger window
+        self.setGeometry(100, 100, 950, 750) 
         self.setStyleSheet(f"background-color: {BACKGROUND_COLOR};")
 
         # Main widget and layout
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         self.main_layout = QVBoxLayout(self.central_widget)
-        self.main_layout.setContentsMargins(0, 0, 0, 0) # No margin for main layout
+        self.main_layout.setContentsMargins(0, 0, 0, 0) 
 
-        # Create stacked widget for different pages
+        # Create stacked widget for different pages 
         self.stacked_widget = QStackedWidget()
         self.main_layout.addWidget(self.stacked_widget, 1) # Give stack widget stretch factor
 
@@ -755,18 +742,18 @@ class TawdrlikApp(QMainWindow):
         self.setup_home_page()          # Index 2
         self.setup_post_item_page()     # Index 3
         self.setup_view_items_page()    # Index 4
-        self.setup_profile_page()       # Index 5 (Now includes claim management)
-
+        self.setup_profile_page()       # Index 5 
+        
         # Flash message label at the bottom
         self.flash_message_label = QLabel("")
         self.flash_message_label.setAlignment(Qt.AlignCenter)
         self.flash_message_label.setStyleSheet("background-color: #4CAF50; color: white; padding: 8px; font-weight: bold; border-radius: 0px;") # Initial style (success)
-        self.flash_message_label.setVisible(False) # Initially hidden
+        self.flash_message_label.setVisible(False) 
         self.flash_timer = QTimer(self)
         self.flash_timer.setSingleShot(True)
         self.flash_timer.timeout.connect(lambda: self.flash_message_label.setVisible(False))
 
-        self.main_layout.addWidget(self.flash_message_label) # Add below stacked widget
+        self.main_layout.addWidget(self.flash_message_label) 
 
         # Start with login page
         self.stacked_widget.setCurrentIndex(0)
@@ -777,7 +764,7 @@ class TawdrlikApp(QMainWindow):
         if is_error:
             self.flash_message_label.setStyleSheet("background-color: #f44336; color: white; padding: 8px; font-weight: bold; border-radius: 0px;") # Error style
         else:
-            self.flash_message_label.setStyleSheet("background-color: #4CAF50; color: white; padding: 8px; font-weight: bold; border-radius: 0px;") # Success style
+            self.flash_message_label.setStyleSheet("background-color: #4CAF50; color: white; padding: 8px; font-weight: bold; border-radius: 0px;") # Success style 
         self.flash_message_label.setText(message)
         self.flash_message_label.setVisible(True)
         self.flash_timer.start(duration)
@@ -928,22 +915,22 @@ class TawdrlikApp(QMainWindow):
     def setup_home_page(self):
         home_widget = QWidget()
         home_layout = QVBoxLayout(home_widget)
-        home_layout.setContentsMargins(10,10,10,10) # Reduce margins slightly
+        home_layout.setContentsMargins(10,10,10,10) 
 
         header_container = QWidget()
         header_container.setStyleSheet(f"background-color: {PRIMARY_COLOR}; border-radius: 10px; padding: 15px 20px; margin-bottom: 15px;")
         header_layout = QHBoxLayout(header_container)
 
         self.welcome_label = QLabel("Welcome back!")
-        self.welcome_label.setFont(QFont(FONT_FAMILY, 15, QFont.Bold)) # Slightly smaller
+        self.welcome_label.setFont(QFont(FONT_FAMILY, 15, QFont.Bold)) 
         self.welcome_label.setStyleSheet("color: white;")
 
-        profile_button = QPushButton(QIcon.fromTheme("user-identity"), " My Profile & Claims") # Updated text
+        profile_button = QPushButton(QIcon.fromTheme("user-identity"), " My Profile & Claims")
         profile_button.setStyleSheet("background-color: white; color: #3BAFDA; padding: 8px 15px; border-radius: 5px; font-weight: bold; border: none;")
         profile_button.setCursor(Qt.PointingHandCursor)
-        profile_button.setIconSize(QSize(18, 18)) # Adjust icon size
-        profile_button.clicked.connect(self.show_profile_page) # Connect to profile page
-
+        profile_button.setIconSize(QSize(18, 18)) 
+        profile_button.clicked.connect(self.show_profile_page) 
+        
         logout_button = QPushButton(QIcon.fromTheme("application-exit"), " Logout")
         logout_button.setStyleSheet("background-color: #f44336; color: white; padding: 8px 15px; border-radius: 5px; font-weight: bold; border: none;")
         logout_button.setCursor(Qt.PointingHandCursor)
@@ -972,7 +959,7 @@ class TawdrlikApp(QMainWindow):
 
         # Button grid
         buttons_layout = QHBoxLayout()
-        buttons_layout.setSpacing(20) # Add spacing between buttons
+        buttons_layout.setSpacing(20) 
 
         button_style = """
             QPushButton {
@@ -1004,12 +991,11 @@ class TawdrlikApp(QMainWindow):
         buttons_layout.addWidget(view_items_button)
 
         main_content_layout.addLayout(buttons_layout)
-        home_layout.addWidget(main_content, 1) # Give content stretch factor
+        home_layout.addWidget(main_content, 1) 
 
         self.stacked_widget.addWidget(home_widget)
 
     def setup_post_item_page(self):
-        # ... (Post item page setup - mostly unchanged, ensure image preview works) ...
         post_item_widget = QWidget()
         post_layout = QVBoxLayout(post_item_widget)
         post_layout.setContentsMargins(20, 20, 20, 20)
@@ -1026,7 +1012,7 @@ class TawdrlikApp(QMainWindow):
         back_button = QPushButton(QIcon.fromTheme("go-previous"), " Back to Home")
         back_button.setStyleSheet("QPushButton { background-color: white; color: #3BAFDA; padding: 10px 18px; border-radius: 5px; font-weight: bold; font-size: 14px; border: none; } QPushButton:hover { background-color: #e0f7ff; }")
         back_button.setCursor(Qt.PointingHandCursor)
-        back_button.setIconSize(back_button.sizeHint() * 0.6) # Adjust icon size
+        back_button.setIconSize(back_button.sizeHint() * 0.6)
         back_button.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(2))
 
         header_layout.addWidget(self.post_title_label)
@@ -1072,7 +1058,7 @@ class TawdrlikApp(QMainWindow):
         self.item_description = QTextEdit()
         self.item_description.setPlaceholderText("Provide details: color, brand, specific marks, contents...")
         self.item_description.setStyleSheet(field_style)
-        self.item_description.setMinimumHeight(100) # Reduced height slightly
+        self.item_description.setMinimumHeight(100) 
         post_form.addRow(QLabel("<b>Description:</b>*"), self.item_description)
 
         image_layout = QHBoxLayout()
@@ -1081,8 +1067,8 @@ class TawdrlikApp(QMainWindow):
         self.select_image_button.setCursor(Qt.PointingHandCursor)
         self.select_image_button.clicked.connect(self.select_image_file)
 
-        self.image_preview_label = QLabel() # Label to hold the pixmap
-        self.image_preview_label.setFixedSize(80, 80) # Fixed size for preview
+        self.image_preview_label = QLabel() 
+        self.image_preview_label.setFixedSize(80, 80) 
         self.image_preview_label.setAlignment(Qt.AlignCenter)
         self.image_preview_label.setStyleSheet("background-color: #f0f0f0; border: 1px solid #ccc; border-radius: 4px;")
         self.image_preview_label.setText("No Image\nSelected")
@@ -1093,8 +1079,7 @@ class TawdrlikApp(QMainWindow):
         image_layout.addWidget(self.image_preview_label)
         image_layout.addStretch()
 
-        post_form.addRow(QLabel("<b>Image:</b>"), image_layout) # Changed label, made optional? Let's keep required for now
-
+        post_form.addRow(QLabel("<b>Image:</b>"), image_layout) 
         form_layout.addLayout(post_form)
         form_layout.addSpacing(30)
 
@@ -1112,7 +1097,7 @@ class TawdrlikApp(QMainWindow):
         post_layout.addWidget(scroll_area)
 
         self.stacked_widget.addWidget(post_item_widget)
-        self.current_item_status = "lost" # Default
+        self.current_item_status = "lost"
 
     def select_image_file(self):
         """Open a file dialog to select an image for posting."""
@@ -1130,13 +1115,13 @@ class TawdrlikApp(QMainWindow):
                      image_data_temp = f.read()
                      if len(image_data_temp) > 16 * 1024 * 1024:
                           QMessageBox.warning(self, "Image Too Large", "Item image must be under 16MB.")
-                          return # Don't update path or preview
-
+                          return 
                 self.selected_image_path = file_path
+                
                 # Display a thumbnail preview
                 preview_pixmap = pixmap.scaled(self.image_preview_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
                 self.image_preview_label.setPixmap(preview_pixmap)
-                self.image_preview_label.setToolTip(file_path) # Show full path on hover
+                self.image_preview_label.setToolTip(file_path) 
 
             except Exception as e:
                  QMessageBox.warning(self, "Image Error", f"Could not load image: {e}")
@@ -1147,7 +1132,6 @@ class TawdrlikApp(QMainWindow):
 
 
     def setup_view_items_page(self):
-        # ... (View items page setup - Add filtering logic, ensure items list layout exists) ...
         view_items_widget = QWidget()
         view_layout = QVBoxLayout(view_items_widget)
         view_layout.setContentsMargins(20, 20, 20, 20)
@@ -1225,7 +1209,7 @@ class TawdrlikApp(QMainWindow):
         scroll_area.setStyleSheet("border: none; background-color: transparent;")
 
         scroll_content = QWidget()
-        self.items_list_layout = QVBoxLayout(scroll_content) # Layout for item cards
+        self.items_list_layout = QVBoxLayout(scroll_content)
         self.items_list_layout.setAlignment(Qt.AlignTop)
         self.items_list_layout.setSpacing(18)
         self.items_list_layout.setContentsMargins(5, 5, 10, 5)
@@ -1267,7 +1251,7 @@ class TawdrlikApp(QMainWindow):
         # --- User Info Section ---
         user_info_group = QGroupBox("User Information")
         user_info_group.setStyleSheet("QGroupBox { font-size: 14px; font-weight: bold; } QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; }")
-        user_info_container_layout = QVBoxLayout(user_info_group) # Use layout inside groupbox
+        user_info_container_layout = QVBoxLayout(user_info_group) 
 
         user_info_container_layout.setSpacing(8)
         self.profile_username_label = QLabel("Username: Loading...")
@@ -1280,13 +1264,15 @@ class TawdrlikApp(QMainWindow):
 
 
         # --- Splitter for My Items and Claims ---
-        splitter = QWidget() # Using a simple widget container for now
+        
+        splitter = QWidget() 
         splitter_layout = QHBoxLayout(splitter)
         splitter_layout.setSpacing(20)
-        profile_layout.addWidget(splitter, 1) # Make this section expandable
+        profile_layout.addWidget(splitter, 1)
 
 
         # --- Left Side: My Posted Items ---
+        
         my_items_group = QGroupBox("My Posted Items")
         my_items_group.setStyleSheet("QGroupBox { font-size: 14px; font-weight: bold; } QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; }")
         my_items_layout = QVBoxLayout(my_items_group)
@@ -1295,7 +1281,7 @@ class TawdrlikApp(QMainWindow):
         items_scroll_area.setWidgetResizable(True)
         items_scroll_area.setStyleSheet("border: 1px solid #e0e0e0; border-radius: 5px; background-color: white;")
         items_scroll_content = QWidget()
-        self.user_items_layout = QVBoxLayout(items_scroll_content) # Layout for user's item cards
+        self.user_items_layout = QVBoxLayout(items_scroll_content) 
         self.user_items_layout.setAlignment(Qt.AlignTop)
         self.user_items_layout.setSpacing(15)
         self.user_items_layout.setContentsMargins(10, 10, 10, 10)
@@ -1305,6 +1291,7 @@ class TawdrlikApp(QMainWindow):
 
 
         # --- Right Side: Claims Management ---
+        
         claims_management_group = QGroupBox("Claims Management")
         claims_management_group.setStyleSheet("QGroupBox { font-size: 14px; font-weight: bold; } QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; }")
         claims_management_layout = QVBoxLayout(claims_management_group)
@@ -1315,15 +1302,15 @@ class TawdrlikApp(QMainWindow):
         claims_on_my_items_layout_outer = QVBoxLayout(claims_on_my_items_group)
         claims_on_items_scroll = QScrollArea()
         claims_on_items_scroll.setWidgetResizable(True)
-        claims_on_items_scroll.setStyleSheet("border: 1px solid #e0e0e0; border-radius: 5px; background-color: #f8f8f8;") # Slightly different bg
+        claims_on_items_scroll.setStyleSheet("border: 1px solid #e0e0e0; border-radius: 5px; background-color: #f8f8f8;") 
         claims_on_items_content = QWidget()
-        self.claims_on_my_items_layout = QVBoxLayout(claims_on_items_content) # Layout for received claim cards
+        self.claims_on_my_items_layout = QVBoxLayout(claims_on_items_content) 
         self.claims_on_my_items_layout.setAlignment(Qt.AlignTop)
         self.claims_on_my_items_layout.setSpacing(10)
         self.claims_on_my_items_layout.setContentsMargins(8, 8, 8, 8)
         claims_on_items_scroll.setWidget(claims_on_items_content)
         claims_on_my_items_layout_outer.addWidget(claims_on_items_scroll)
-        claims_management_layout.addWidget(claims_on_my_items_group, 1) # Stretch factor
+        claims_management_layout.addWidget(claims_on_my_items_group, 1) 
 
         # My Submitted Claims (for Claimants)
         my_submitted_claims_group = QGroupBox("My Submitted Claims")
@@ -1332,13 +1319,13 @@ class TawdrlikApp(QMainWindow):
         my_claims_scroll.setWidgetResizable(True)
         my_claims_scroll.setStyleSheet("border: 1px solid #e0e0e0; border-radius: 5px; background-color: #f8f8f8;")
         my_claims_content = QWidget()
-        self.my_claims_layout = QVBoxLayout(my_claims_content) # Layout for submitted claim cards
+        self.my_claims_layout = QVBoxLayout(my_claims_content) 
         self.my_claims_layout.setAlignment(Qt.AlignTop)
         self.my_claims_layout.setSpacing(10)
         self.my_claims_layout.setContentsMargins(8, 8, 8, 8)
         my_claims_scroll.setWidget(my_claims_content)
         my_submitted_claims_layout_outer.addWidget(my_claims_scroll)
-        claims_management_layout.addWidget(my_submitted_claims_group, 1) # Stretch factor
+        claims_management_layout.addWidget(my_submitted_claims_group, 1)
 
         splitter_layout.addWidget(claims_management_group)
 
@@ -1366,9 +1353,9 @@ class TawdrlikApp(QMainWindow):
         success, result = login_user(email, password)
 
         if success:
-            self.current_user = result # Store {'id': ?, 'username': ?, 'email': ?}
+            self.current_user = result 
             self.welcome_label.setText(f"Welcome back, <b>{self.current_user['username']}</b>!")
-            self.stacked_widget.setCurrentIndex(2)  # Go to home page
+            self.stacked_widget.setCurrentIndex(2) 
             self.login_email.clear()
             self.login_password.clear()
             self.show_flash_message(f"Logged in as {self.current_user['username']}.")
@@ -1407,7 +1394,7 @@ class TawdrlikApp(QMainWindow):
         if success:
             QMessageBox.information(self, "Registration Successful",
                                    "Account created! You can now log in.")
-            self.stacked_widget.setCurrentIndex(0)  # Back to login page
+            self.stacked_widget.setCurrentIndex(0)  
             self.register_username.clear()
             self.register_email.clear()
             self.register_password.clear()
@@ -1423,8 +1410,7 @@ class TawdrlikApp(QMainWindow):
         if reply == QMessageBox.Yes:
             logged_out_user = self.current_user['username'] if self.current_user else "User"
             self.current_user = None
-            self.stacked_widget.setCurrentIndex(0) # Back to login page
-            # Clear sensitive fields
+            self.stacked_widget.setCurrentIndex(0) 
             self.login_email.clear()
             self.login_password.clear()
             self.item_title.clear(); self.item_location.clear(); self.item_description.clear()
@@ -1440,7 +1426,7 @@ class TawdrlikApp(QMainWindow):
         """Show the post item page with specified status (lost/found)"""
         if not self.current_user:
              self.show_flash_message("Please log in to post items.", is_error=True)
-             self.stacked_widget.setCurrentIndex(0) # Redirect to login
+             self.stacked_widget.setCurrentIndex(0) 
              return
 
         self.current_item_status = status
@@ -1454,7 +1440,6 @@ class TawdrlikApp(QMainWindow):
             self.submit_item_button.setStyleSheet(button_style_base + "QPushButton { background-color: #81c784; }")
             self.item_date.setToolTip("Date the item was found")
 
-        # Clear form fields
         self.item_title.clear(); self.item_category.setCurrentIndex(0); self.item_location.clear()
         self.item_date.setDate(QDate.currentDate()); self.item_description.clear()
         self.selected_image_path = None
@@ -1481,12 +1466,10 @@ class TawdrlikApp(QMainWindow):
         if not title or not location or not description:
             QMessageBox.warning(self, "Submission Error", "Please fill in Title, Location, and Description.")
             return
-        # Let's make image optional for now? No, keep required as per original logic.
         if not self.selected_image_path:
             QMessageBox.warning(self, "Submission Error", "Please select an image for the item.")
             return
 
-        # Read image data
         image_data = None
         try:
             with open(self.selected_image_path, 'rb') as f:
@@ -1496,9 +1479,8 @@ class TawdrlikApp(QMainWindow):
                  return
         except Exception as e:
             QMessageBox.warning(self, "Image Error", f"Could not read image file: {e}")
-            return # Stop submission if image is invalid
+            return 
 
-        # Save the item
         success, message = save_item(
             self.current_user['id'], title, category, location, date,
             self.current_item_status, description, image_data
@@ -1506,7 +1488,7 @@ class TawdrlikApp(QMainWindow):
 
         if success:
             self.show_flash_message(message)
-            self.show_view_items_page() # Go to view items page
+            self.show_view_items_page() 
         else:
             QMessageBox.critical(self, "Error Saving Item", message)
 
@@ -1519,10 +1501,10 @@ class TawdrlikApp(QMainWindow):
              return
         if not self.databases_connected:
              self.show_flash_message("Database connection error. Cannot load items.", is_error=True)
-             # Allow showing the page, but loading will fail
              pass
 
         # Update filter comboboxes 
+        
         current_cat = self.category_filter.currentText()
         current_loc = self.location_filter.currentText()
         self.category_filter.clear()
@@ -1534,12 +1516,11 @@ class TawdrlikApp(QMainWindow):
         loc_index = self.location_filter.findText(current_loc)
         self.location_filter.setCurrentIndex(loc_index if loc_index != -1 else 0)
 
-        self.stacked_widget.setCurrentIndex(4) # Switch page first
-        # Load items based on current filters (excluding recovered)
+        self.stacked_widget.setCurrentIndex(4) 
         self.load_all_items(
              self.category_filter.currentText(),
              self.location_filter.currentText(),
-             include_recovered=False # Explicitly exclude recovered
+             include_recovered=False 
         ) 
 
 
@@ -1549,7 +1530,7 @@ class TawdrlikApp(QMainWindow):
         self.load_all_items(
             self.category_filter.currentText(),
             self.location_filter.currentText(),
-            include_recovered=False # Exclude recovered on general view
+            include_recovered=False 
         )
 
     def reset_item_filters(self):
@@ -1557,22 +1538,21 @@ class TawdrlikApp(QMainWindow):
         if not self.current_user: return
         self.category_filter.setCurrentIndex(0)
         self.location_filter.setCurrentIndex(0)
-        self.load_all_items(include_recovered=False) # Exclude recovered
+        self.load_all_items(include_recovered=False) 
 
 
     def load_all_items(self, filter_category=None, filter_location=None, include_recovered=False):
         """Load and display items with optional filtering and recovery status"""
-        if not self.databases_connected: return # Don't try if DB offline
+        if not self.databases_connected: return 
         self.clear_layout(self.items_list_layout) 
 
-        loading_label = QLabel("Loading items...") # Add loading indicator
+        loading_label = QLabel("Loading items...") 
         loading_label.setAlignment(Qt.AlignCenter); loading_label.setStyleSheet("color: #888; margin: 30px 0;")
         self.items_list_layout.addWidget(loading_label)
         QApplication.processEvents()
 
         items = get_all_items(filter_category, filter_location, include_recovered)
-        self.clear_layout(self.items_list_layout) # Remove loading label
-
+        self.clear_layout(self.items_list_layout) 
         if not items:
             no_items_label = QLabel("No items found matching your criteria.")
             no_items_label.setAlignment(Qt.AlignCenter); no_items_label.setStyleSheet("color: #666; margin: 30px 0;")
@@ -1580,7 +1560,6 @@ class TawdrlikApp(QMainWindow):
             return
 
         for item in items:
-            # Pass the item dictionary directly
             item_widget = self.create_item_widget(item, context='view_all')
             self.items_list_layout.addWidget(item_widget)
 
@@ -1593,16 +1572,13 @@ class TawdrlikApp(QMainWindow):
             return
         if not self.databases_connected:
              self.show_flash_message("Database connection error. Cannot load profile data.", is_error=True)
-             # Allow showing page but loading will fail
              pass
 
-        # Update user info display
         self.profile_username_label.setText(f"Username: <b>{self.current_user['username']}</b>")
         self.profile_email_label.setText(f"Email: {self.current_user['email']}")
 
-        self.stacked_widget.setCurrentIndex(5) # Switch page first
+        self.stacked_widget.setCurrentIndex(5) 
 
-        # Load user's items and claims (both received and submitted)
         self.load_user_items()
         self.load_claims_on_my_items()
         self.load_my_submitted_claims()
@@ -1625,7 +1601,6 @@ class TawdrlikApp(QMainWindow):
             return
 
         for item in items:
-             # Pass the item dictionary
             item_widget = self.create_item_widget(item, context='profile_own')
             self.user_items_layout.addWidget(item_widget)
 
@@ -1639,30 +1614,24 @@ class TawdrlikApp(QMainWindow):
         self.claims_on_my_items_layout.addWidget(loading_label)
         QApplication.processEvents()
 
-        # Need to get items owned by user first, then get claims for each item
-        my_items = get_user_items(self.current_user['id']) # We might already have this? Let's refetch for simplicity.
+        my_items = get_user_items(self.current_user['id'])
         all_claims_on_my_items = []
         for item in my_items:
-            # Only show claims for items that are NOT recovered yet
             if item.get('status') != 'recovered':
                 claims_for_this_item = get_claims_for_item(item['id'])
-                # Add item title to each claim dict for context
                 for claim in claims_for_this_item:
                     claim['item_title'] = item['title']
                     all_claims_on_my_items.append(claim)
 
-        # Sort claims (e.g., by date, or group by item) - simple date sort for now
         all_claims_on_my_items.sort(key=lambda x: x['claim_created_at'], reverse=True)
 
-        self.clear_layout(self.claims_on_my_items_layout) # Remove loading
-
+        self.clear_layout(self.claims_on_my_items_layout) 
         if not all_claims_on_my_items:
             no_claims_label = QLabel("No pending claims on your items."); no_claims_label.setAlignment(Qt.AlignCenter); no_claims_label.setStyleSheet("color: #666; margin: 15px 0;")
             self.claims_on_my_items_layout.addWidget(no_claims_label)
             return
 
         for claim in all_claims_on_my_items:
-             # Pass the claim dictionary
             claim_widget = self.create_claim_widget(claim, context='owner_view')
             self.claims_on_my_items_layout.addWidget(claim_widget)
 
@@ -1685,7 +1654,6 @@ class TawdrlikApp(QMainWindow):
             return
 
         for claim in my_claims:
-             # Pass the claim dictionary
             claim_widget = self.create_claim_widget(claim, context='claimant_view')
             self.my_claims_layout.addWidget(claim_widget)
 
@@ -1725,7 +1693,7 @@ class TawdrlikApp(QMainWindow):
         details_widget = QWidget()
         details_layout = QVBoxLayout(details_widget)
         details_layout.setContentsMargins(0, 0, 0, 0)
-        details_layout.setSpacing(5) # Reduced spacing
+        details_layout.setSpacing(5) 
 
         # Top line: Title and Status
         top_line_layout = QHBoxLayout()
@@ -1742,7 +1710,7 @@ class TawdrlikApp(QMainWindow):
         status_style = "color: white; padding: 3px 6px; border-radius: 4px; font-weight: bold;"
         if item_status == 'lost': status_label.setStyleSheet(f"background-color: #ffb74d; {status_style}")
         elif item_status == 'found': status_label.setStyleSheet(f"background-color: #81c784; {status_style}")
-        elif item_status == 'recovered': status_label.setStyleSheet(f"background-color: #78909c; {status_style}") # Grey for recovered
+        elif item_status == 'recovered': status_label.setStyleSheet(f"background-color: #78909c; {status_style}") 
         else: status_label.setStyleSheet(f"background-color: #bdbdbd; {status_style}")
 
         top_line_layout.addWidget(title_label)
@@ -1758,7 +1726,7 @@ class TawdrlikApp(QMainWindow):
         details_form.setRowWrapPolicy(QFormLayout.WrapLongRows)
 
         def create_detail_label(text):
-            lbl = QLabel(str(text)) # Ensure text is string
+            lbl = QLabel(str(text)) 
             lbl.setStyleSheet("font-size: 12px; color: #444;")
             lbl.setWordWrap(True)
             return lbl
@@ -1777,40 +1745,36 @@ class TawdrlikApp(QMainWindow):
         description_label.setWordWrap(True)
         description_label.setStyleSheet("font-size: 12px; color: #555; margin-top: 5px;")
         description_label.setAlignment(Qt.AlignTop)
-        details_layout.addWidget(description_label, 1) # Give description stretch factor
+        details_layout.addWidget(description_label, 1) 
 
         # --- Action Button Area ---
         button_layout = QHBoxLayout()
-        button_layout.setContentsMargins(0, 8, 0, 0) # Add top margin
-        button_layout.addStretch() # Push buttons to the right
+        button_layout.setContentsMargins(0, 8, 0, 0) 
+        button_layout.addStretch()
 
-        # --- *** UPDATED CONDITION FOR CLAIM BUTTON *** ---
         # Check if user is logged in before checking ID
         user_logged_in = self.current_user is not None
-        current_user_id = self.current_user['id'] if user_logged_in else -1 # Use -1 if not logged in
+        current_user_id = self.current_user['id'] if user_logged_in else -1 
 
-        is_claimable = ( user_logged_in and # Must be logged in
-                         context == 'view_all' and # Must be on the general view page
-                         item_data.get('status') in ['found', 'lost'] and # **** ALLOW CLAIMING 'found' OR 'lost' ITEMS ****
-                         item_data.get('user_id') != current_user_id ) # Cannot claim own item
+        is_claimable = ( user_logged_in and 
+                         context == 'view_all' and 
+                         item_data.get('status') in ['found', 'lost'] and 
+                         item_data.get('user_id') != current_user_id ) 
 
         if is_claimable:
             claim_button = QPushButton(QIcon.fromTheme("mail-mark-unread"), " Claim This Item")
             claim_button.setStyleSheet(f"background-color: {PRIMARY_COLOR}; color: white; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; border:none;")
             claim_button.setCursor(Qt.PointingHandCursor)
-            # Use lambda to pass item_id to the handler
             claim_button.clicked.connect(lambda checked, iid=item_data['id']: self.handle_claim_button_click(iid))
             button_layout.addWidget(claim_button)
 
-        # Add button layout to details section if it contains buttons
-        if button_layout.count() > 1: # If more than just the stretch item
+        if button_layout.count() > 1:
             details_layout.addLayout(button_layout)
         else:
-            # If no buttons, add a small spacer or stretch to maintain layout consistency
             details_layout.addSpacerItem(QSpacerItem(0, 10, QSizePolicy.Minimum, QSizePolicy.Expanding))
 
 
-        card_layout.addWidget(details_widget, 1) # Add details (stretch factor 1)
+        card_layout.addWidget(details_widget, 1)
         return item_widget
 
 
@@ -1822,18 +1786,16 @@ class TawdrlikApp(QMainWindow):
         """
         claim_widget = QWidget()
         base_style = "border-radius: 6px; border: 1px solid #ccc; padding: 10px;"
-        # Differentiate background slightly based on status?
         claim_status = claim_data.get('claim_status', 'pending')
-        bg_color = "#ffffff" # Default white for pending
-        if claim_status == 'accepted': bg_color = "#e8f5e9" # Light green
-        elif claim_status == 'rejected': bg_color = "#ffebee" # Light red
+        bg_color = "#ffffff" 
+        if claim_status == 'accepted': bg_color = "#e8f5e9" 
+        elif claim_status == 'rejected': bg_color = "#ffebee" 
 
         claim_widget.setStyleSheet(f"background-color: {bg_color}; {base_style}")
 
         main_layout = QVBoxLayout(claim_widget)
         main_layout.setSpacing(8)
 
-        # Top Line: Item Info (if claimant view) or Claimant Info (if owner view) + Status
         top_line_layout = QHBoxLayout()
         top_line_layout.setContentsMargins(0,0,0,0)
 
@@ -1847,7 +1809,7 @@ class TawdrlikApp(QMainWindow):
              info_label.setToolTip(f"Claim on item ID: {claim_data.get('item_id')}")
         else: # owner_view
              claimant_name = claim_data.get('claimant_username', 'Unknown User')
-             item_title_for_owner = claim_data.get('item_title', 'Your Item') # Added in load_claims_on_my_items
+             item_title_for_owner = claim_data.get('item_title', 'Your Item') 
              info_label.setText(f"Claim by <b>{claimant_name}</b> on: <i>{item_title_for_owner}</i>")
              info_label.setToolTip(f"Claim ID: {claim_data.get('claim_id')}, Claimant ID: {claim_data.get('claimant_id')}")
 
@@ -1856,12 +1818,12 @@ class TawdrlikApp(QMainWindow):
         status_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         status_label.setFont(QFont(FONT_FAMILY, 9, QFont.Bold))
         status_style = "color: white; padding: 3px 6px; border-radius: 4px; font-weight: bold;"
-        if claim_status == 'pending': status_label.setStyleSheet(f"background-color: #ffc107; {status_style}") # Amber
-        elif claim_status == 'accepted': status_label.setStyleSheet(f"background-color: #4caf50; {status_style}") # Green
-        elif claim_status == 'rejected': status_label.setStyleSheet(f"background-color: #f44336; {status_style}") # Red
+        if claim_status == 'pending': status_label.setStyleSheet(f"background-color: #ffc107; {status_style}") 
+        elif claim_status == 'accepted': status_label.setStyleSheet(f"background-color: #4caf50; {status_style}") 
+        elif claim_status == 'rejected': status_label.setStyleSheet(f"background-color: #f44336; {status_style}") 
         else: status_label.setStyleSheet(f"background-color: #bdbdbd; {status_style}")
 
-        top_line_layout.addWidget(info_label, 1) # Give label stretch
+        top_line_layout.addWidget(info_label, 1) 
         top_line_layout.addWidget(status_label)
         main_layout.addLayout(top_line_layout)
 
@@ -1873,13 +1835,12 @@ class TawdrlikApp(QMainWindow):
 
         # Claim Date
         created_at_raw = claim_data.get('claim_created_at', '')
-        created_at_str = str(created_at_raw).split('.')[0] if created_at_raw else 'Unknown Date' # Format nicely
+        created_at_str = str(created_at_raw).split('.')[0] if created_at_raw else 'Unknown Date' 
         date_label = QLabel(f"<i>Submitted: {created_at_str}</i>")
         date_label.setStyleSheet("font-size: 11px; color: #666;")
         main_layout.addWidget(date_label)
 
 
-        # Evidence Image (if available) & Action Buttons
         bottom_layout = QHBoxLayout()
         bottom_layout.setContentsMargins(0, 5, 0, 0)
 
@@ -1898,16 +1859,15 @@ class TawdrlikApp(QMainWindow):
              else:
                   evidence_img_label.setText("Invalid\nEvidence")
                   evidence_img_label.setToolTip("Could not load evidence image")
-             bottom_layout.addWidget(evidence_img_label) # Add evidence preview
-        else:
+             bottom_layout.addWidget(evidence_img_label) 
+             
              no_evidence_label = QLabel("<i>No evidence provided</i>")
              no_evidence_label.setStyleSheet("font-size: 11px; color: #888;")
              bottom_layout.addWidget(no_evidence_label)
 
 
-        bottom_layout.addStretch() # Push buttons right
+        bottom_layout.addStretch() 
 
-        # Action Buttons (Accept/Reject for owner on pending claims)
         if context == 'owner_view' and claim_status == 'pending':
             accept_button = QPushButton(QIcon.fromTheme("dialog-ok-apply"), " Accept")
             accept_button.setStyleSheet("background-color: #4caf50; color: white; padding: 5px 10px; border-radius: 4px; font-size: 11px; border: none;")
@@ -1935,13 +1895,6 @@ class TawdrlikApp(QMainWindow):
              self.show_flash_message("Database connection error. Cannot submit claim.", is_error=True)
              return
 
-        # Check if user has already claimed this item (optional but good)
-        # claims_on_this = get_claims_for_item(item_id)
-        # already_claimed = any(c['claimant_id'] == self.current_user['id'] for c in claims_on_this)
-        # if already_claimed:
-        #      QMessageBox.information(self, "Already Claimed", "You have already submitted a claim for this item.")
-        #      return
-
         dialog = ClaimDialog(item_id, self)
         if dialog.exec_() == QDialog.Accepted:
             claim_data = dialog.get_claim_data()
@@ -1950,13 +1903,11 @@ class TawdrlikApp(QMainWindow):
                 success, message = submit_claim(item_id, self.current_user['id'], reason, evidence_data)
                 if success:
                     self.show_flash_message(message)
-                    # Optionally, refresh the view or profile page if needed
-                    if self.stacked_widget.currentIndex() == 5: # If on profile page
-                        self.load_my_submitted_claims() # Refresh submitted claims list
+                    if self.stacked_widget.currentIndex() == 5: 
+                        self.load_my_submitted_claims() 
                 else:
                     self.show_flash_message(message, is_error=True)
             else:
-                # This case handled by dialog validation, but good to have
                 self.show_flash_message("Claim submission cancelled or failed validation.", is_error=True)
 
 
@@ -1973,7 +1924,6 @@ class TawdrlikApp(QMainWindow):
              success, message = accept_claim(claim_id, item_id)
              if success:
                   self.show_flash_message(message)
-                  # Refresh the profile page views
                   self.load_user_items()
                   self.load_claims_on_my_items()
                   self.load_my_submitted_claims()
@@ -1995,7 +1945,7 @@ class TawdrlikApp(QMainWindow):
                   self.show_flash_message(f"Claim {claim_id} rejected.")
                   # Refresh the claims on my items view
                   self.load_claims_on_my_items()
-                  self.load_my_submitted_claims() # Also refresh claimant view if they are the same user
+                  self.load_my_submitted_claims() 
              else:
                   self.show_flash_message(f"Failed to reject claim: {message}", is_error=True)
 
@@ -2006,11 +1956,10 @@ class TawdrlikApp(QMainWindow):
             return None
         try:
             pixmap = QPixmap()
-            # Use QBuffer and QIODevice to load from bytes
             buffer = QBuffer()
-            buffer.setData(bytes(image_data)) # Ensure it's bytes
+            buffer.setData(bytes(image_data)) 
             buffer.open(QIODevice.ReadOnly)
-            loaded = pixmap.loadFromData(buffer.readAll()) # Read data from buffer
+            loaded = pixmap.loadFromData(buffer.readAll()) 
             buffer.close()
             return pixmap if loaded else None
         except Exception as e:
@@ -2031,6 +1980,7 @@ class TawdrlikApp(QMainWindow):
                         self.clear_layout(sub_layout)
 
 # --- Main application entry point ---
+
 def main():
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
