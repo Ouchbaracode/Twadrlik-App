@@ -28,7 +28,7 @@ MYSQL_CONFIG = {
     'host': 'localhost',
     'user': 'root',
     'password': 'Mohamed@mysql', 
-    'database': 'tawdrlikDB'
+    'database': 'tawdrlik_DB'
 }
 
 MONGODB_URI = "mongodb://localhost:27017/"
@@ -116,7 +116,7 @@ def register_user(username, email, password):
             "INSERT INTO users (username, email, password) VALUES (%s, %s, %s)",
             (username, email, hashed_password)
         )
-        mysql_connection.commit()
+        mysql_connection.commit()   
         return True, "Registration successful!"
     except mysql.connector.Error as err:
         print(f"Registration error: {err}")

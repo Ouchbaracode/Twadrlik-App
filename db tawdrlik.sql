@@ -1,38 +1,45 @@
-create database tawdrlikDB;
-use tawdrlikDB;
+CREATE DATABASE IF NOT EXISTS tawdrlikDB; 
+USE tawdrlikDB;
 
-CREATE TABLE IF NOT EXISTS users (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                username VARCHAR(50) UNIQUE NOT NULL,
-                email VARCHAR(100) UNIQUE NOT NULL,
-                password VARCHAR(64) NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB;
- CREATE TABLE IF NOT EXISTS items (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                user_id INT NOT NULL,
-                title VARCHAR(255) NOT NULL,
-                category VARCHAR(100),
-                location VARCHAR(255),
-                date DATE,
-                status ENUM('lost', 'found', 'recovered') NOT NULL DEFAULT 'found',
-                description TEXT,
-                mongo_id VARCHAR(24) NULL, -- Allow NULL initially, ObjectId is 24 hex chars
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            ) ENGINE=InnoDB;
-            
- CREATE TABLE IF NOT EXISTS claims (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                item_id INT NOT NULL,
-                claimant_id INT NOT NULL,
-                reason TEXT NOT NULL,
-                status ENUM('pending', 'accepted', 'rejected') NOT NULL DEFAULT 'pending',
-                mongo_detail_id VARCHAR(24) NULL, -- Link to optional MongoDB details
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE,
-                FOREIGN KEY (claimant_id) REFERENCES users(id) ON DELETE CASCADE
-            ) ENGINE=InnoDB;
-select * from items;
-select * from claims;
+-- Table pour les utilisateurs
+CREATE TABLE IF NOT EXISTS utilisateurs (
+    id_utilisateur INT AUTO_INCREMENT PRIMARY KEY,
+    nom_utilisateur VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,        
+    mot_de_passe VARCHAR(64) NOT NULL,
+    date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Table pour les objets perdus/trouvés
+CREATE TABLE IF NOT EXISTS objets (
+    id_objet INT AUTO_INCREMENT PRIMARY KEY,
+    id_utilisateur_proprietaire INT NOT NULL,
+    titre VARCHAR(255) NOT NULL,
+    categorie VARCHAR(100),
+    lieu VARCHAR(255),
+    date_evenement DATE,
+    statut_objet ENUM('lost', 'found', 'recovered') NOT NULL DEFAULT 'found', 
+    description_meta TEXT,
+    id_mongo_details VARCHAR(24) NULL, -- Lien vers les détails MongoDB (image, etc.)
+    date_signalement TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_objets_utilisateurs FOREIGN KEY (id_utilisateur_proprietaire) REFERENCES utilisateurs(id_utilisateur) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Table pour les réclamations sur les objets
+CREATE TABLE IF NOT EXISTS reclamations (
+    id_reclamation INT AUTO_INCREMENT PRIMARY KEY,
+    id_objet_reclame INT NOT NULL,
+    id_utilisateur_reclamant INT NOT NULL,
+    motif_reclamation TEXT NOT NULL,
+    statut_reclamation ENUM('pending', 'accepted', 'rejected') NOT NULL DEFAULT 'pending', 
+    id_mongo_preuve VARCHAR(24) NULL, -- Lien vers les détails de la preuve en MongoDB
+    date_soumission_reclamation TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_reclamations_objets FOREIGN KEY (id_objet_reclame) REFERENCES objets(id_objet) ON DELETE CASCADE,
+    CONSTRAINT fk_reclamations_utilisateurs FOREIGN KEY (id_utilisateur_reclamant) REFERENCES utilisateurs(id_utilisateur) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Les lignes SELECT * suivantes sont pour la vérification et ne font pas partie de la structure de création
+-- Vous pouvez les exécuter après la création pour voir les tables vides (si la base est nouvelle)
+-- SELECT * FROM objets;
+-- SELECT * FROM reclamations;
+SELECT * FROM utilisateurs;
