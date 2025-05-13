@@ -51,7 +51,7 @@ def connect_to_mysql():
         return True # Déjà connecté
     try:
         mysql_connection = mysql.connector.connect(**MYSQL_CONFIG, autocommit=False) # Désactiver l'autocommit pour les transactions
-        # Tester la connexion
+        # Tester la connexion 
         cursor = mysql_connection.cursor()
         cursor.execute("SELECT 1")
         cursor.fetchall()
